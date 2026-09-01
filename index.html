@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b0f1a" />
+  <title>Arqueiro vs Zumbis</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+    html, body {
+      width:100%; height:100%; overflow:hidden;
+      background:#0b0f1a; color:#fff;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      touch-action: none;
+    }
+
+    /* TELA DE ROTAÇÃO */
+    #rotate-screen {
+      display:none;
+      position:fixed; inset:0; z-index:9999;
+      background:#0b0f1a;
+      flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding:20px;
+    }
+    #rotate-screen .phone {
+      width:80px; height:140px; border:4px solid #fff; border-radius:14px;
+      margin-bottom:20px; animation: rotar 2s ease-in-out infinite;
+    }
+    @keyframes rotar {
+      0%,100% { transform: rotate(0deg); }
+      50%     { transform: rotate(-90deg); }
+    }
+    @media screen and (orientation: portrait) {
+      #rotate-screen { display:flex !important; }
+      #game-container { display:none !important; }
+    }
+
+    /* CONTAINER */
+    #game-container {
+      position:relative; width:100vw; height:100vh;
+      background: linear-gradient(180deg, #0a0e1a 0%, #1a2332 40%, #2d3e50 70%, #3d5a3d 100%);
+      overflow:hidden;
+    }
+
+    /* CÉU ESTRELADO */
+    #stars, #stars2, #stars3 {
+      position:absolute; top:0; left:0; width:100%; height:60%;
+      pointer-events:none; z-index:1;
+    }
+
+    /* LUA */
+    #moon {
+      position:absolute; top:8%; right:10%;
+      width:60px; height:60px; border-radius:50%;
+      background: radial-gradient(circle at 35% 35%, #fffbe6 0%, #f0e68c 60%, #d4c878 100%);
+      box-shadow: 0 0 40px rgba(255,251,230,.5);
+      z-index:1;
+    }
+
+    /* HUD */
+    #hud {
+      position:absolute; top:10px; left:10px; right:10px;
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:14px; font-weight:bold;
+      background:rgba(0,0,0,.6); padding:10px 16px; border-radius:12px;
+      z-index:10;
+    }
+    #hud div span { color:#ffd54a; }
+
+    /* CONTROLE DE SOM */
+    #sound-control {
+      position:absolute; top:10px; right:10px;
+      width:40px; height:40px; border-radius:50%;
+      background:rgba(0,0,0,.6); border:2px solid #fff3;
+      color:#fff; font-size:20px;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; z-index:15;
+      transition: all 0.3s;
+    }
+    #sound-control:hover { background:rgba(255,255,255,.2); }
+
+    /* ARENA */
+    #arena {
+      position:absolute; inset:0; top:55px; bottom:110px;
+      overflow:hidden; cursor: crosshair; z-index:5;
+    }
+
+    /* CHÃO */
+    #ground {
+      position:absolute; bottom:0; left:0; right:0; height:80px;
+      background: linear-gradient(180deg, #3d5a3d 0%, #2d4a2d 100%);
+      border-top: 3px solid #1a3018; z-index:2;
+    }
+
+    /* ARQUEIRO */
+    .character {
+      position:absolute; pointer-events:none;
+      transform-origin: bottom center; z-index:6;
+    }
+
+    /* LINHA DE MIRA */
+    #aim-line {
+      position:absolute;
+      pointer-events:none;
+      border-top: 2px dashed rgba(255,255,255,.7);
+      transform-origin: left center;
+      z-index:9;
+      display:none;
+      box-shadow: 0 0 6px rgba(255,255,255,.5);
+    }
+
+    /* FLECHA */
+    .arrow {
+      position:absolute; width:40px; height:6px;
+      pointer-events:none; transform-origin: center center; z-index:7;
+    }
+    .arrow .shaft {
+      position:absolute; left:0; top:2px;
+      width:32px; height:2px;
+      background: linear-gradient(90deg, #6b3410, #d4a574);
+    }
+    .arrow .head {
+      position:absolute; right:0; top:-2px;
+      width:0; height:0;
+      border-left:10px solid #c0c0c0;
+      border-top:5px solid transparent;
+      border-bottom:5px solid transparent;
+    }
+    .arrow.explosive .shaft { background: linear-gradient(90deg, #8b0000, #ff4500); }
+    .arrow.explosive .head  { border-left-color:#ff4500; }
+    .arrow.triple .shaft    { background: linear-gradient(90deg, #1e3a8a, #60a5fa); }
+    .arrow.triple .head     { border-left-color:#60a5fa; }
+
+    /* EXPLOSÃO */
+    .explosion {
+      position:absolute; width:100px; height:100px; border-radius:50%;
+      background: radial-gradient(circle, #ffff00 0%, #ff8c00 40%, #ff4500 70%, transparent 100%);
+      animation: boom .5s ease-out forwards; pointer-events:none; z-index:8;
+    }
+    @keyframes boom {
+      0%   { transform:scale(0); opacity:1; }
+      100% { transform:scale(2); opacity:0; }
+    }
+
+    /* BOTÕES */
+    #arrow-buttons {
+      position:absolute; bottom:8px; left:50%;
+      transform:translateX(-50%); display:flex; gap:10px;
+      z-index:20; padding:6px 10px;
+      background:rgba(0,0,0,.7); border-radius:14px;
+      backdrop-filter:blur(4px);
+    }
+    .arrow-btn {
+      width:64px; height:64px; border-radius:12px;
+      border:2px solid #fff3;
+      background:linear-gradient(180deg, #2a3a5a, #1a2540);
+      color:#fff; font-size:12px; font-weight:bold;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:2px; cursor:pointer;
+    }
+    .arrow-btn:active { transform:scale(.92); }
+    .arrow-btn.active {
+      border-color:#ffd54a;
+      box-shadow:0 0 14px #ffd54a, inset 0 0 10px #ffd54a40;
+    }
+    .arrow-btn .icon { font-size:22px; }
+    .arrow-btn .label { font-size:10px; opacity:.9; }
+
+    /* TELAS */
+    .screen {
+      position:absolute; inset:0; background:rgba(0,0,0,.9);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      z-index:50; text-align:center; padding:20px;
+    }
+    .screen h1 {
+      font-size:clamp(24px,5vw,48px); color:#ffd54a; margin-bottom:10px;
+      text-shadow:0 0 20px #ffd54a80;
+    }
+    .screen p { font-size:clamp(14px,2vw,18px); margin-bottom:20px; opacity:.9; }
+    .btn {
+      padding:16px 36px; font-size:18px; font-weight:bold;
+      background:linear-gradient(180deg, #ffd54a, #e6a800);
+      color:#1a1a1a; border:none; border-radius:12px;
+      cursor:pointer; box-shadow:0 4px 0 #8b6914;
+      transition: all 0.2s;
+    }
+    .btn:hover { transform:translateY(-2px); box-shadow:0 6px 0 #8b6914; }
+    .btn:active { transform:translateY(2px); box-shadow:0 2px 0 #8b6914; }
+    .hidden { display:none !important; }
+
+    /* DANO */
+    .damage {
+      position:absolute; color:#ff4444; font-weight:bold; font-size:20px;
+      pointer-events:none; animation:floatUp 1s ease-out forwards; z-index:10;
+      text-shadow: 2px 2px 4px #000;
+    }
+    @keyframes floatUp {
+      0%   { transform:translateY(0) scale(1); opacity:1; }
+      100% { transform:translateY(-50px) scale(1.2); opacity:0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="rotate-screen">
+    <div class="phone"></div>
+    <h2>Gire o dispositivo</h2>
+    <p>Modo paisagem recomendado 📱➡️</p>
+  </div>
+
+  <div id="game-container">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>
+    <div id="moon"></div>
+
+    <div id="hud">
+      <div>Fase: <span id="phase">1</span>/50</div>
+      <div>Flechas: <span id="arrows">5</span></div>
+      <div>Inimigos: <span id="enemies">0</span></div>
+    </div>
+
+    <div id="sound-control" title="Som">🔊</div>
+
+    <div id="arena">
+      <div id="ground"></div>
+      <div id="aim-line"></div>
+
+      <!-- ARQUEIRO -->
+      <svg id="archer" class="character" width="70" height="110" viewBox="0 0 70 110" style="left:100px; bottom:80px;">
+        <rect x="24" y="75" width="9" height="32" fill="#5a3a1a" stroke="#2a1a08" stroke-width="1.5"/>
+        <rect x="37" y="75" width="9" height="32" fill="#5a3a1a" stroke="#2a1a08" stroke-width="1.5"/>
+        <ellipse cx="28.5" cy="107" rx="7" ry="4" fill="#2a1a08"/>
+        <ellipse cx="41.5" cy="107" rx="7" ry="4" fill="#2a1a08"/>
+        <path d="M 18 45 L 52 45 L 48 78 L 22 78 Z" fill="#2d5016" stroke="#1a3008" stroke-width="2"/>
+        <rect x="20" y="68" width="30" height="5" fill="#3a2817"/>
+        <rect x="32" y="68" width="5" height="5" fill="#ffd54a"/>
+        <rect x="12" y="47" width="8" height="24" fill="#f4c28c" stroke="#8b5a2b" stroke-width="1.5" rx="4"/>
+        <rect x="50" y="47" width="8" height="24" fill="#f4c28c" stroke="#8b5a2b" stroke-width="1.5" rx="4"/>
+        <circle cx="35" cy="30" r="14" fill="#f4c28c" stroke="#8b5a2b" stroke-width="2"/>
+        <path d="M 20 22 Q 35 6 50 22 L 50 28 L 20 28 Z" fill="#2d5016" stroke="#1a3008" stroke-width="2"/>
+        <path d="M 48 12 Q 58 8 62 16" stroke="#ff4444" stroke-width="3" fill="none"/>
+        <circle cx="62" cy="16" r="3" fill="#ffd54a"/>
+        <circle cx="30" cy="30" r="2" fill="#000"/>
+        <circle cx="40" cy="30" r="2" fill="#000"/>
+        <path d="M 32 37 Q 35 39 38 37" stroke="#000" stroke-width="1.5" fill="none"/>
+        <g class="bow">
+          <path d="M 58 32 Q 68 55 58 78" stroke="url(#bowGradient)" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M 58 32 Q 64 55 58 78" stroke="#8b6914" stroke-width="2" fill="none" opacity="0.5"/>
+          <line x1="58" y1="32" x2="58" y2="78" stroke="#e8e8e8" stroke-width="1.5" opacity="0.9"/>
+          <circle cx="58" cy="45" r="2" fill="#ffd54a"/>
+          <circle cx="58" cy="65" r="2" fill="#ffd54a"/>
+        </g>
+        <defs>
+          <linearGradient id="bowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#6b3410"/>
+            <stop offset="50%" style="stop-color:#8b4513"/>
+            <stop offset="100%" style="stop-color:#6b3410"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <div id="arrow-buttons">
+      <button class="arrow-btn active" data-type="normal">
+        <span class="icon"></span>
+        <span class="label">Normal</span>
+      </button>
+      <button class="arrow-btn" data-type="explosive">
+        <span class="icon">💣</span>
+        <span class="label">Explosiva</span>
+      </button>
+      <button class="arrow-btn" data-type="triple">
+        <span class="icon">🏹🏹</span>
+        <span class="label">Tripla</span>
+      </button>
+    </div>
+
+    <div id="start-screen" class="screen">
+      <h1>🏹 Arqueiro vs Zumbis</h1>
+      <p>Enfrente 50 ondas de zumbis e vença o Cavaleiro Zumbi!<br>
+      <small>Toque na tela para mirar e atirar</small></p>
+      <button class="btn" id="btn-start">Iniciar Defesa</button>
+    </div>
+
+    <div id="gameover-screen" class="screen hidden">
+      <h1 id="go-title">💀 Derrota</h1>
+      <p id="go-text">Os zumbis invadiram...</p>
+      <button class="btn" id="btn-retry">Tentar Novamente</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== SISTEMA DE ÁUDIO =====
+    const AudioSys = {
+      ctx: null,
+      enabled: true,
+      musicOscillators: [],
+      gainNode: null,
+      
+      init() {
+        if (!this.ctx) {
+          try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.gainNode = this.ctx.createGain();
+            this.gainNode.connect(this.ctx.destination);
+            this.gainNode.gain.value = 0.3;
+          } catch(e) { console.warn('Áudio não suportado'); }
+        }
+      },
+
+      // Música de suspense/aventura (drone atmosférico)
+      playSuspenseMusic() {
+        if (!this.ctx || !this.enabled) return;
+        this.stopMusic();
+        
+        const now = this.ctx.currentTime;
+        
+        // Nota grave contínua (suspense)
+        const osc1 = this.ctx.createOscillator();
+        osc1.type = 'sine';
+        osc1.frequency.value = 55; // A1
+        const gain1 = this.ctx.createGain();
+        gain1.gain.value = 0.15;
+        osc1.connect(gain1);
+        gain1.connect(this.gainNode);
+        osc1.start(now);
+        
+        // Segunda nota (harmonia)
+        const osc2 = this.ctx.createOscillator();
+        osc2.type = 'triangle';
+        osc2.frequency.value = 82.41; // E2
+        const gain2 = this.ctx.createGain();
+        gain2.gain.value = 0.08;
+        osc2.connect(gain2);
+        gain2.connect(this.gainNode);
+        osc2.start(now);
+        
+        // LFO para modulação
+        const lfo = this.ctx.createOscillator();
+        lfo.frequency.value = 0.5;
+        const lfoGain = this.ctx.createGain();
+        lfoGain.gain.value = 0.02;
+        lfo.connect(lfoGain);
+        lfoGain.connect(gain1.gain);
+        lfo.start(now);
+        
+        this.musicOscillators = [osc1, osc2, lfo, gain1, gain2, lfoGain];
+      },
+
+      stopMusic() {
+        this.musicOscillators.forEach(o => {
+          try { o.stop(); } catch(e) {}
+        });
+        this.musicOscillators = [];
+      },
+
+      // Som de disparo
+      shoot() {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        
+        const osc = this.ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+        
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      },
+
+      // Som de explosão
+      explosion() {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        const duration = 0.5;
+        
+        const bufferSize = this.ctx.sampleRate * duration;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+        }
+        
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+        
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+        
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start(now);
+      },
+
+      // Rosnado de zumbi
+      zombieGroan() {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        const duration = 0.8 + Math.random() * 0.6;
+        
+        const osc1 = this.ctx.createOscillator();
+        osc1.type = 'sawtooth';
+        const baseFreq = 60 + Math.random() * 60;
+        osc1.frequency.setValueAtTime(baseFreq, now);
+        osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, now + duration);
+        
+        const osc2 = this.ctx.createOscillator();
+        osc2.type = 'square';
+        osc2.frequency.setValueAtTime(baseFreq * 1.3, now);
+        osc2.frequency.exponentialRampToValueAtTime(baseFreq * 0.7, now + duration);
+        
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 500;
+        filter.Q.value = 3;
+        
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.1);
+        gain.gain.linearRampToValueAtTime(0.1, now + duration * 0.7);
+        gain.gain.linearRampToValueAtTime(0, now + duration);
+        
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + duration);
+        osc2.stop(now + duration);
+      },
+
+      // Som de acerto
+      hit() {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        
+        const osc = this.ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.1);
+        
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      },
+
+      toggle() {
+        this.enabled = !this.enabled;
+        if (!this.enabled) {
+          this.stopMusic();
+        }
+        return this.enabled;
+      }
+    };
+
+    // ===== GERAÇÃO DE ESTRELAS =====
+    function generateStars() {
+      const layers = [
+        { el: document.getElementById('stars'),  count: 100, size: 1 },
+        { el: document.getElementById('stars2'), count: 60,  size: 2 },
+        { el: document.getElementById('stars3'), count: 30,  size: 3 }
+      ];
+      layers.forEach(layer => {
+        let shadows = [];
+        for (let i = 0; i < layer.count; i++) {
+          const x = Math.random() * 100;
+          const y = Math.random() * 100;
+          const alpha = 0.4 + Math.random() * 0.6;
+          shadows.push(`${x}vw ${y}vh 0 ${layer.size}px rgba(255,255,255,${alpha})`);
+        }
+        layer.el.style.boxShadow = shadows.join(',');
+        layer.el.style.width = '1px';
+        layer.el.style.height = '1px';
+      });
+    }
+    generateStars();
+
+    // ===== ESTADO DO JOGO =====
+    const state = {
+      phase: 1,  // CORREÇÃO: começa na fase 1
+      arrows: 5,
+      enemiesAlive: 0,
+      currentType: 'normal',
+      running: false,
+      zombies: [],
+      arrowsFlying: [],
+      gravity: 0.3,
+      groanInterval: null
+    };
+
+    const $ = id => document.getElementById(id);
+    const arena = $('arena');
+    const archer = $('archer');
+    const aimLine = $('aim-line');
+
+    // ===== CONTROLE DE SOM =====
+    const soundControl = $('sound-control');
+    soundControl.addEventListener('click', () => {
+      const enabled = AudioSys.toggle();
+      soundControl.textContent = enabled ? '🔊' : '🔇';
+    });
+
+    // ===== SELEÇÃO DE FLECHA =====
+    document.querySelectorAll('.arrow-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.arrow-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.currentType = btn.dataset.type;
+      });
+    });
+
+    // ===== HUD =====
+    function updateHUD() {
+      $('phase').textContent = state.phase;
+      $('arrows').textContent = state.arrows;
+      $('enemies').textContent = state.enemiesAlive;
+    }
+
+    // ===== POSIÇÃO DO ARQUEIRO =====
+    function getArcherOrigin() {
+      const archerRect = archer.getBoundingClientRect();
+      const arenaRect = arena.getBoundingClientRect();
+      return {
+        x: archerRect.right - arenaRect.left - 10,
+        y: archerRect.top - arenaRect.top + archerRect.height * 0.5
+      };
+    }
+
+    // ===== DISPARAR FLECHA COM MIRA =====
+    function shoot(e) {
+      if (!state.running) return;
+      if (state.arrows <= 0) {
+        const hud = $('hud');
+        hud.style.background = 'rgba(255,0,0,.6)';
+        setTimeout(() => hud.style.background = 'rgba(0,0,0,.6)', 200);
+        return;
+      }
+
+      AudioSys.init();
+      AudioSys.shoot();
+
+      state.arrows--;
+      updateHUD();
+
+      const origin = getArcherOrigin();
+      const arenaRect = arena.getBoundingClientRect();
+      const tx = e.clientX - arenaRect.left;
+      const ty = e.clientY - arenaRect.top;
+      const dx = tx - origin.x;
+      const dy = ty - origin.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const angle = Math.atan2(dy, dx);
+      const power = Math.min(8 + dist / 25, 18);
+
+      const type = state.currentType;
+      const angles = type === 'triple' ? [angle - 0.2, angle, angle + 0.2] : [angle];
+
+      angles.forEach(ang => {
+        const arrow = document.createElement('div');
+        arrow.className = 'arrow' + (type === 'explosive' ? ' explosive' : '') + (type === 'triple' ? ' triple' : '');
+        arrow.innerHTML = '<div class="shaft"></div><div class="head"></div>';
+        arrow.style.left = origin.x + 'px';
+        arrow.style.top = origin.y + 'px';
+        arena.appendChild(arrow);
+
+        state.arrowsFlying.push({
+          el: arrow, x: origin.x, y: origin.y,
+          vx: Math.cos(ang) * power,
+          vy: Math.sin(ang) * power,
+          type: type
+        });
+      });
+
+      // Mostra linha de mira
+      aimLine.style.display = 'block';
+      aimLine.style.left = origin.x + 'px';
+      aimLine.style.top = origin.y + 'px';
+      aimLine.style.width = Math.min(dist, 250) + 'px';
+      aimLine.style.transform = `rotate(${angle}rad)`;
+      setTimeout(() => { aimLine.style.display = 'none'; }, 150);
+    }
+
+    arena.addEventListener('pointerdown', (e) => {
+      if (!state.running) return;
+      if (e.target.closest('.arrow-btn') || e.target.closest('#sound-control')) return;
+      e.preventDefault();
+      shoot(e);
+    }, { passive: false });
+
+    // ===== CRIAR ZUMBI =====
+    function createZombieSVG(isBoss) {
+      const w = isBoss ? 90 : 55;
+      const h = isBoss ? 140 : 90;
+      const s = isBoss ? 1.5 : 1;
+      const skin = isBoss ? '#6a6a6a' : '#7fb069';
+      const skinDark = isBoss ? '#3a3a3a' : '#4a7c3a';
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'character');
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+      svg.innerHTML = `
+        <rect x="${20*s}" y="${70*s}" width="${8*s}" height="${28*s}" fill="${skinDark}" stroke="#1a3008" stroke-width="1"/>
+        <rect x="${32*s}" y="${70*s}" width="${8*s}" height="${28*s}" fill="${skinDark}" stroke="#1a3008" stroke-width="1"/>
+        <path d="M ${15*s} ${40*s} L ${45*s} ${40*s} L ${42*s} ${72*s} L ${18*s} ${72*s} Z" fill="${isBoss ? '#2a2a2a' : '#5a3a1a'}" stroke="#1a1a08" stroke-width="1.5"/>
+        <rect x="${5*s}" y="${42*s}" width="${7*s}" height="${25*s}" fill="${skin}" stroke="#1a3008" stroke-width="1" rx="3" transform="rotate(-20 ${8*s} ${42*s})"/>
+        <rect x="${48*s}" y="${42*s}" width="${7*s}" height="${25*s}" fill="${skin}" stroke="#1a3008" stroke-width="1" rx="3" transform="rotate(20 ${51*s} ${42*s})"/>
+        <circle cx="${30*s}" cy="${28*s}" r="${13*s}" fill="${skin}" stroke="#1a3008" stroke-width="1.5"/>
+        <circle cx="${24*s}" cy="${27*s}" r="${2.5*s}" fill="#ff0000"/>
+        <circle cx="${36*s}" cy="${27*s}" r="${2.5*s}" fill="#ff0000"/>
+        <circle cx="${24*s}" cy="${27*s}" r="${1*s}" fill="#ffff00"/>
+        <circle cx="${36*s}" cy="${27*s}" r="${1*s}" fill="#ffff00"/>
+        <path d="M ${22*s} ${36*s} L ${38*s} ${36*s} L ${36*s} ${40*s} L ${24*s} ${40*s} Z" fill="#2a0000"/>
+        <line x1="${26*s}" y1="${36*s}" x2="${26*s}" y2="${40*s}" stroke="#fff" stroke-width="1"/>
+        <line x1="${30*s}" y1="${36*s}" x2="${30*s}" y2="${40*s}" stroke="#fff" stroke-width="1"/>
+        <line x1="${34*s}" y1="${36*s}" x2="${34*s}" y2="${40*s}" stroke="#fff" stroke-width="1"/>
+        ${isBoss ? `<path d="M ${15*s} ${20*s} Q ${30*s} ${5*s} ${45*s} ${20*s}" fill="#4a4a4a" stroke="#000" stroke-width="2"/>` : ''}
+      `;
+      return svg;
+    }
+
+    // ===== INICIAR FASE =====
+    function startPhase() {
+      state.arrows = 5 + Math.floor(state.phase / 5);
+      state.enemiesAlive = 0;
+      updateHUD();
+
+      state.zombies.forEach(z => z.el.remove());
+      state.zombies = [];
+
+      const isBoss = state.phase === 50;
+      const count = isBoss ? 1 : Math.min(3 + Math.floor(state.phase / 3), 10);
+
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => spawnZombie(isBoss), i * 800);
+      }
+
+      // Inicia rosnados dos zumbis
+      startZombieGroans();
+    }
+
+    function spawnZombie(isBoss) {
+      if (!state.running) return;
+      const el = createZombieSVG(isBoss);
+      const arenaW = arena.clientWidth;
+      const arenaH = arena.clientHeight;
+      const zw = isBoss ? 90 : 55;
+      const zh = isBoss ? 140 : 90;
+
+      el.style.position = 'absolute';
+      el.style.left = arenaW + 'px';
+      el.style.bottom = '80px';
+      arena.appendChild(el);
+
+      state.zombies.push({
+        el, x: arenaW, y: arenaH - 80 - zh,
+        w: zw, h: zh,
+        hp: isBoss ? 20 : 1 + Math.floor(state.phase / 8),
+        speed: isBoss ? 0.4 : 0.5 + Math.random() * 0.3 + state.phase * 0.015,
+        isBoss, hitFlash: 0
+      });
+      state.enemiesAlive++;
+      updateHUD();
+    }
+
+    // ===== ROSNADOS DOS ZUMBIS =====
+    function startZombieGroans() {
+      stopZombieGroans();
+      const groan = () => {
+        if (!state.running || state.zombies.length === 0) return;
+        AudioSys.zombieGroan();
+        state.groanInterval = setTimeout(groan, 2000 + Math.random() * 3000);
+      };
+      state.groanInterval = setTimeout(groan, 1500);
+    }
+
+    function stopZombieGroans() {
+      if (state.groanInterval) {
+        clearTimeout(state.groanInterval);
+        state.groanInterval = null;
+      }
+    }
+
+    // ===== LOOP PRINCIPAL =====
+    function loop() {
+      if (!state.running) return;
+
+      // Move zumbis
+      for (let j = state.zombies.length - 1; j >= 0; j--) {
+        const z = state.zombies[j];
+        z.x -= z.speed;
+        z.el.style.left = z.x + 'px';
+
+        if (z.hitFlash > 0) {
+          z.hitFlash--;
+          z.el.style.filter = 'brightness(2)';
+        } else {
+          z.el.style.filter = '';
+        }
+
+        if (z.x < 160) {
+          endGame(false);
+          return;
+        }
+      }
+
+      // Move flechas
+      for (let i = state.arrowsFlying.length - 1; i >= 0; i--) {
+        const f = state.arrowsFlying[i];
+        f.vy += state.gravity;
+        f.x += f.vx;
+        f.y += f.vy;
+
+        const angle = Math.atan2(f.vy, f.vx);
+        f.el.style.left = (f.x - 20) + 'px';
+        f.el.style.top = (f.y - 3) + 'px';
+        f.el.style.transform = `rotate(${angle}rad)`;
+
+        const groundY = arena.clientHeight - 80;
+        if (f.y >= groundY) {
+          if (f.type === 'explosive') explode(f.x, f.y);
+          f.el.remove();
+          state.arrowsFlying.splice(i, 1);
+          continue;
+        }
+
+        if (f.x > arena.clientWidth + 50 || f.x < -50 || f.y > arena.clientHeight + 50) {
+          f.el.remove();
+          state.arrowsFlying.splice(i, 1);
+          continue;
+        }
+
+        // Colisão
+        for (let j = state.zombies.length - 1; j >= 0; j--) {
+          const z = state.zombies[j];
+          if (f.x > z.x && f.x < z.x + z.w && f.y > z.y && f.y < z.y + z.h) {
+            const dmg = f.type === 'explosive' ? 3 : 1;
+            z.hp -= dmg;
+            z.hitFlash = 5;
+            showDamage(f.x, f.y, dmg);
+            AudioSys.hit();
+
+            if (f.type === 'explosive') {
+              explode(f.x, f.y);
+              AudioSys.explosion();
+              state.zombies.forEach(zz => {
+                if (zz !== z && Math.abs(zz.x + zz.w/2 - f.x) < 80) {
+                  zz.hp -= 2;
+                  zz.hitFlash = 5;
+                }
+              });
+            }
+
+            f.el.remove();
+            state.arrowsFlying.splice(i, 1);
+
+            if (z.hp <= 0) {
+              z.el.remove();
+              state.zombies.splice(j, 1);
+              state.enemiesAlive--;
+              updateHUD();
+            }
+            break;
+          }
+        }
+      }
+
+      if (state.zombies.length === 0 && state.arrowsFlying.length === 0 && state.running) {
+        if (state.phase >= 50) {
+          endGame(true);
+        } else {
+          state.phase++;
+          setTimeout(startPhase, 1500);
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    function explode(x, y) {
+      const boom = document.createElement('div');
+      boom.className = 'explosion';
+      boom.style.left = (x - 50) + 'px';
+      boom.style.top = (y - 50) + 'px';
+      arena.appendChild(boom);
+      setTimeout(() => boom.remove(), 500);
+    }
+
+    function showDamage(x, y, dmg) {
+      const d = document.createElement('div');
+      d.className = 'damage';
+      d.textContent = '-' + dmg;
+      d.style.left = x + 'px';
+      d.style.top = y + 'px';
+      arena.appendChild(d);
+      setTimeout(() => d.remove(), 1000);
+    }
+
+    function endGame(victory) {
+      state.running = false;
+      stopZombieGroans();
+      AudioSys.stopMusic();
+      $('go-title').textContent = victory ? '🏆 Vitória!' : '💀 Derrota';
+      $('go-text').textContent = victory 
+        ? 'Você derrotou o Cavaleiro Zumbi! Lenda viva!' 
+        : `Você chegou até a fase ${state.phase}. Tente novamente!`;
+      $('gameover-screen').classList.remove('hidden');
+    }
+
+    function startGame() {
+      AudioSys.init();
+      state.phase = 1;  // CORREÇÃO: garante que começa na fase 1
+      state.running = true;
+      $('start-screen').classList.add('hidden');
+      $('gameover-screen').classList.add('hidden');
+      
+      // Inicia música de suspense
+      AudioSys.playSuspenseMusic();
+      
+      startPhase();
+      requestAnimationFrame(loop);
+    }
+
+    $('btn-start').addEventListener('click', () => {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(()=>{});
+      }
+      startGame();
+    });
+
+    $('btn-retry').addEventListener('click', () => {
+      state.zombies.forEach(z => z.el.remove());
+      state.arrowsFlying.forEach(f => f.el.remove());
+      state.zombies = [];
+      state.arrowsFlying = [];
+      startGame();
+    });
+  </script>
+</body>
+</html>
